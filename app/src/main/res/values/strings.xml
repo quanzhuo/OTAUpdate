@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">SDCardUpdate</string>
+    <string name="preference_file_name">com.foxconn.zzdc.sdcardupdate.ota</string>
+    <string name="old_version">old_version</string>
+    <string name="check_update">Check Update</string>
+    <string name="download">Download</string>
+    <string name="update_log">Release Note</string>
+    <string name="pause">Pause</string>
+    <string name="notify_title_start_download">Start Download</string>
+    <string name="notify_title_downloading">Downloading</string>
+    <string name="notify_title_pause">Pause</string>
+    <string name="notify_title_success">Download Finished</string>
+    <string name="notify_title_failed">Download Failed</string>
+    <string name="notify_channel_name">OTA Download Service</string>
+    <string name="notify_channel_des">OTA Download Service</string>
+    <string name="install">Install</string>
+    <string name="no_permission_toast">You do not have permission to read SN</string>
+    <string name="current_version">Current Version</string>
+    <string name="new_version">New Version</string>
+    <string name="no_new_version">The current is newest</string>
+    <string name="auto_download">Auto download</string>
+    <string name="auto_install">Auto install</string>
+    <string name="auto_download_case">connect wi-fi battery > 30%</string>
+    <string name="auto_install_case">battery > 50%</string>
+    <string name="settings">Settings</string>
+</resources>

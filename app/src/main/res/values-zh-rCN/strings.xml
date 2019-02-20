@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SDCardUpdate</string>
+    <string name="preference_file_name">com.foxconn.zzdc.sdcardupdate.ota</string>
+    <string name="old_version">old_version</string>
+    <string name="check_update">检查更新</string>
+    <string name="download">下载</string>
+    <string name="update_log">更新日志</string>
+    <string name="pause">暂停</string>
+    <string name="notify_title_start_download">开始下载</string>
+    <string name="notify_title_downloading">正在下载中...</string>
+    <string name="notify_title_pause">下载暂停</string>
+    <string name="notify_title_success">下载完成</string>
+    <string name="notify_title_failed">下载失败</string>
+    <string name="notify_channel_name">OTA 下载服务</string>
+    <string name="notify_channel_des">OTA 下载服务</string>
+    <string name="install">安装</string>
+    <string name="no_permission_toast">请授予读取手机状态的权限</string>
+    <string name="current_version">当前版本</string>
+    <string name="new_version">新版本</string>
+    <string name="no_new_version">当前版本已经是最新版本</string>
+    <string name="auto_download">自动下载</string>
+    <string name="auto_install">自动安装</string>
+    <string name="auto_download_case">连接wi-fi且电池电量大于30%</string>
+    <string name="auto_install_case">电量大于50%，夜间自动完成系统更新</string>
+    <string name="settings">Settings</string>
+</resources>
