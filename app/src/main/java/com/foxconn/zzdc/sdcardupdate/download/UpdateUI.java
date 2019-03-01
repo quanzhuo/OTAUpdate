@@ -1,8 +1,5 @@
-package com.foxconn.zzdc.sdcardupdate;
+package com.foxconn.zzdc.sdcardupdate.download;
 
 public interface UpdateUI {
-
-    void updateButton();
-
     void updateProgress(int progress);
 }

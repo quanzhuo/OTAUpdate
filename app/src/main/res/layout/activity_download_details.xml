@@ -25,27 +25,15 @@
         android:scrollbars="vertical"
         android:lineSpacingMultiplier="1.5"
         android:layout_below="@id/title"
-        android:layout_above="@id/progressBar"/>
+        android:layout_above="@id/pb"/>
 
-    <ProgressBar
-        android:id="@+id/progressBar"
-        style="@android:style/Widget.ProgressBar.Horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:progress="0"
-        android:max="100"
-        android:layout_above="@id/button"
-        android:visibility="invisible"
-        android:layout_margin="20dp"/>
-
-    <Button
-        android:id="@+id/button"
+    <com.foxconn.zzdc.sdcardupdate.tool.ProgressButton
+        android:id="@+id/pb"
         android:layout_alignParentBottom="true"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="20dp"
         android:text="@string/download"
-        android:textSize="18sp"
-        android:textColor="@color/whitecolor"
-        android:background="@drawable/btn_bg" />
+        android:layout_margin="20dp"
+        />
+
 </RelativeLayout>

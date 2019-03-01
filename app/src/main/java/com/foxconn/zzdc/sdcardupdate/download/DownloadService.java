@@ -7,37 +7,44 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.BitmapFactory;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
+import android.util.Log;
 
 import com.foxconn.zzdc.sdcardupdate.R;
-import com.foxconn.zzdc.sdcardupdate.UpdateUI;
+import com.foxconn.zzdc.sdcardupdate.tool.OTAApplication;
 
 import java.io.File;
 
 import static android.app.NotificationManager.IMPORTANCE_HIGH;
 import static android.app.NotificationManager.IMPORTANCE_LOW;
+import static com.foxconn.zzdc.sdcardupdate.autoupdate.SettingActivity.AUTO_INSTALL;
 import static com.foxconn.zzdc.sdcardupdate.download.DownloadStatus.CANCELED;
 import static com.foxconn.zzdc.sdcardupdate.download.DownloadStatus.DOWNLOADING;
 import static com.foxconn.zzdc.sdcardupdate.download.DownloadStatus.FAILED;
 import static com.foxconn.zzdc.sdcardupdate.download.DownloadStatus.FINISHED;
 import static com.foxconn.zzdc.sdcardupdate.download.DownloadStatus.NOT_START;
 import static com.foxconn.zzdc.sdcardupdate.download.DownloadStatus.PAUSED;
+import static com.foxconn.zzdc.sdcardupdate.download.DownloadTask.filePath;
+import static com.foxconn.zzdc.sdcardupdate.tool.Util.copyFile;
+import static com.foxconn.zzdc.sdcardupdate.update.OTAUpdateService.install;
 
 public class DownloadService extends Service {
 
+    public static final String OTA_DIR = "/data/ota_package";
+
     private static final String channelIDSound = "com.foxconn.zzdc.sdcardupdate.sound";
     private static final String channelIDNoSound = "com.foxconn.zzdc.sdcardupdate.nosound";
+    private static final String TAG = "DownloadService";
+
     private static final int NOTIFY_ID_DOWNLOAD_PROGRESS = 1;
 
-    private String mDownloadUrl;
-    private String mReleaseNote;
-    private String mOta;
-    private int mCurrentPercent;
+    private OTAApplication mApp;
 
     private DownloadStatus mDownloadStatus = NOT_START;
 
@@ -47,24 +54,41 @@ public class DownloadService extends Service {
     private DownloadListener mListener = new DownloadListener() {
         @Override
         public void onProgress(int progress) {
-            mCurrentPercent = progress;
+            mApp.setPercent(progress);
             mDownloadStatus = DOWNLOADING;
             mNM.notify(NOTIFY_ID_DOWNLOAD_PROGRESS,
                     getNotification(getString(R.string.notify_title_downloading),
                             progress, channelIDNoSound));
-            mUpdateUI.updateProgress(progress);
+            if (mUpdateUI != null) {
+                mUpdateUI.updateProgress(progress);
+            }
         }
 
         @Override
         public void onSuccess() {
+            Log.d(TAG, "onSuccess: ");
             mDownloadTask = null;
             mDownloadStatus = FINISHED;
+            mApp.setPercent(100);
             stopForeground(true);
             mNM.notify(NOTIFY_ID_DOWNLOAD_PROGRESS,
-                    getNotification(getString(R.string.notify_title_success), -1,
+                    getNotification(getString(R.string.notify_title_success), 100,
                             channelIDSound));
-            mUpdateUI.updateButton();
-            mUpdateUI.updateProgress(100);
+
+            SharedPreferences sharedPref = getSharedPreferences(
+                    getString(R.string.preference_file_name), MODE_PRIVATE);
+            boolean autoInstall = sharedPref.getBoolean(AUTO_INSTALL, false);
+            if (autoInstall) {
+                String dst = OTA_DIR + filePath.substring(filePath.lastIndexOf("/"));
+                Log.d(TAG, "onSuccess: copy " + filePath + " to " + dst);
+                if (copyFile(filePath, dst)) {
+                    install(DownloadService.this, new File(dst));
+                }
+            }
+
+            if (mUpdateUI != null) {
+                mUpdateUI.updateProgress(100);
+            }
         }
 
         @Override
@@ -81,7 +105,7 @@ public class DownloadService extends Service {
             mDownloadTask = null;
             mDownloadStatus = PAUSED;
             mNM.notify(NOTIFY_ID_DOWNLOAD_PROGRESS,
-                    getNotification(getString(R.string.notify_title_pause), mCurrentPercent, channelIDSound));
+                    getNotification(getString(R.string.notify_title_pause), mApp.getPercent(), channelIDSound));
         }
 
         @Override
@@ -103,9 +127,7 @@ public class DownloadService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        mReleaseNote = intent.getStringExtra("releaseNote");
-        mDownloadUrl = intent.getStringExtra("url");
-        mOta = intent.getStringExtra("ota");
+        mApp = (OTAApplication) getApplication();
 
         mNM = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         createNotificationChannel(channelIDNoSound);
@@ -117,9 +139,8 @@ public class DownloadService extends Service {
 
         public void startDownload(String url) {
             if (mDownloadTask == null) {
-                mDownloadUrl = url;
                 mDownloadTask = new DownloadTask(mListener);
-                mDownloadTask.execute(mDownloadUrl);
+                mDownloadTask.execute(url);
                 startForeground(1, getNotification(
                         getString(R.string.notify_title_start_download), 0, channelIDNoSound));
             }
@@ -135,13 +156,14 @@ public class DownloadService extends Service {
             if (mDownloadTask != null) {
                 mDownloadTask.cancelDownload();
             } else {
-                if (mDownloadUrl != null) {
-                    String fileName = mDownloadUrl.substring(mDownloadUrl.lastIndexOf("/"));
-                    String directory = Environment.getExternalStoragePublicDirectory(
-                            Environment.DIRECTORY_DOWNLOADS).getPath();
-                    File file = new File(directory + fileName);
-                    if (file.exists()) {
-                        file.delete();
+                String url = mApp.getDownloadUrl();
+                if (url != null) {
+
+                    String otaFileName = url.substring(url.lastIndexOf("=") + 1);
+                    File otaPackage = new File(Environment.getExternalStorageDirectory().getPath() + "/", otaFileName);
+
+                    if (otaPackage.exists()) {
+                        otaPackage.delete();
                     }
                     mNM.cancel(1);
                     stopForeground(true);
@@ -163,7 +185,7 @@ public class DownloadService extends Service {
         }
 
         public int getProgress() {
-            return mCurrentPercent;
+            return mApp.getPercent();
         }
     }
 
@@ -185,8 +207,12 @@ public class DownloadService extends Service {
     }
 
     private Notification getNotification(String title, int percent, String channelID) {
-        Intent intent = DownloadDetailsActivity.newIntent(
-                this, mReleaseNote, mDownloadUrl, mOta, mCurrentPercent);
+        Intent intent = new Intent(this, DownloadDetailsActivity.class);
+        intent.putExtra("newVersion", mApp.getNewVersion());
+        intent.putExtra("releaseNote", mApp.getReleaseNote());
+        intent.putExtra("url", mApp.getDownloadUrl());
+        intent.putExtra("ota", mApp.getDownloadUrl());
+        intent.putExtra("percent", mApp.getPercent());
         PendingIntent pi = PendingIntent.getActivity(this, 0, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
@@ -195,6 +221,7 @@ public class DownloadService extends Service {
                         android.R.drawable.alert_dark_frame))
                 .setContentIntent(pi)
                 .setContentTitle(title)
+                .setAutoCancel(true)
                 .setChannelId(channelID);
         if (percent >= 0) {
             builder.setContentText(percent + "%")
@@ -202,15 +229,5 @@ public class DownloadService extends Service {
         }
 
         return builder.build();
-    }
-
-    public static Intent newIntent(Context context, String note, String ota, String url, int percent) {
-        Intent service = new Intent(context, DownloadService.class);
-        service.putExtra("releaseNote", note);
-        service.putExtra("ota", ota);
-        service.putExtra("url", url);
-        service.putExtra("percent", percent);
-
-        return service;
     }
 }

@@ -23,6 +23,8 @@ public class DownloadTask extends AsyncTask<String, Integer, Integer> {
     private boolean mIsPaused = false;
     private int mLastProgress;
 
+    public static String filePath;
+
     public DownloadTask(DownloadListener listener) {
         mListener = listener;
     }
@@ -35,11 +37,12 @@ public class DownloadTask extends AsyncTask<String, Integer, Integer> {
         try {
             long downloadedLength = 0;
             String downloadUrl = params[0];
-            String fileName = downloadUrl.substring(downloadUrl.lastIndexOf("/"));
-            String directory = Environment.getExternalStoragePublicDirectory(
-                    Environment.DIRECTORY_DOWNLOADS).getPath();
+            String fileName = downloadUrl.substring(downloadUrl.lastIndexOf("=") + 1);
+            String directory = Environment.getExternalStorageDirectory().getPath();
 
-            file = new File(directory + fileName);
+            file = new File(directory + "/" + fileName);
+            filePath = file.getAbsolutePath();
+
             if (file.exists()) {
                 downloadedLength = file.length();
             }
@@ -151,6 +154,6 @@ public class DownloadTask extends AsyncTask<String, Integer, Integer> {
             response.close();
             return contentLength;
         }
-        return  0;
+        return 0;
     }
 }

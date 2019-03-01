@@ -1,4 +1,4 @@
-package com.foxconn.zzdc.sdcardupdate;
+package com.foxconn.zzdc.sdcardupdate.update;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -20,6 +20,6 @@ public class UpdateReceiver extends BroadcastReceiver {
             return;
         }
 
-        context.startForegroundService(service);
+        // context.startForegroundService(service);
     }
 }

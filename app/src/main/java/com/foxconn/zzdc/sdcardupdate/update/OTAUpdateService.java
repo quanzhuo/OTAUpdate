@@ -1,4 +1,4 @@
-package com.foxconn.zzdc.sdcardupdate;
+package com.foxconn.zzdc.sdcardupdate.update;
 
 import android.app.IntentService;
 import android.content.Context;
@@ -10,17 +10,16 @@ import android.os.RecoverySystem;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import com.foxconn.zzdc.sdcardupdate.R;
 import com.liulishuo.filedownloader.BaseDownloadTask;
 import com.liulishuo.filedownloader.FileDownloadLargeFileListener;
 import com.liulishuo.filedownloader.FileDownloader;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.security.MessageDigest;
 
-import static com.foxconn.zzdc.sdcardupdate.UpdateReceiver.TAG;
+import static com.foxconn.zzdc.sdcardupdate.tool.Util.fileToMD5;
+import static com.foxconn.zzdc.sdcardupdate.update.UpdateReceiver.TAG;
 
 public class OTAUpdateService extends IntentService {
     public static final String OTA_DIR = "/data/ota_package";
@@ -34,7 +33,7 @@ public class OTAUpdateService extends IntentService {
         // Version format: 0000_0_450
         // Version code format: 0450
         final String newVersion = intent.getStringExtra("version");
-        final String newVerCode = newVersion.substring(5,6) + newVersion.substring(7);
+        final String newVerCode = newVersion.substring(5, 6) + newVersion.substring(7);
         final String curVersion = Build.VERSION.INCREMENTAL; //00WW_5_580
         final String curVerCode = curVersion.substring(5, 6) + curVersion.substring(7);
         final String md5 = intent.getStringExtra("md5");
@@ -72,7 +71,7 @@ public class OTAUpdateService extends IntentService {
                         Log.d(TAG, "Download completed !");
                         final String otaPkgPath = task.getTargetFilePath();
                         final String calculatedMD5 = fileToMD5(otaPkgPath);
-                        if ((md5 != null) && (! md5.equals(calculatedMD5))) {
+                        if ((md5 != null) && (!md5.equals(calculatedMD5))) {
                             Log.e(TAG, "miss matched md5, calculated: " + calculatedMD5 + ", passed:" + md5);
                             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
                             pm.reboot("OTA FAILED !");
@@ -119,43 +118,5 @@ public class OTAUpdateService extends IntentService {
         } catch (IOException e) {
             Log.e(TAG, e + "");
         }
-    }
-
-    public static String fileToMD5(String filepath) {
-        InputStream inputStream = null;
-        try {
-            inputStream = new FileInputStream(filepath);
-            byte[] buffer = new byte[1024];
-            MessageDigest digest = MessageDigest.getInstance("MD5");
-            int numRead = 0;
-            while (numRead != -1) {
-                numRead = inputStream.read(buffer);
-                if (numRead > 0) {
-                    digest.update(buffer, 0, numRead);
-                }
-            }
-            byte[] md5Bytes = digest.digest();
-            return covertHashToString(md5Bytes);
-        } catch (Exception e) {
-            Log.e(TAG, e.toString());
-            return null;
-        } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                    Log.d(TAG, e.toString());
-                }
-            }
-        }
-    }
-
-    private static String covertHashToString(byte[] md5Bytes) {
-        String returnVal = "";
-        for (int i = 0; i < md5Bytes.length; i++) {
-            returnVal += Integer.toString((md5Bytes[i] & 0xff) + 0x100, 16).substring(1);
-        }
-
-        return returnVal.toUpperCase();
     }
 }

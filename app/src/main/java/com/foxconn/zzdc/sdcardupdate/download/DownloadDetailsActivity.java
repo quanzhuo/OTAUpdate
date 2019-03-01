@@ -1,9 +1,7 @@
 package com.foxconn.zzdc.sdcardupdate.download;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
@@ -14,24 +12,26 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
-import android.view.View;
-import android.widget.Button;
-import android.widget.ProgressBar;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.foxconn.zzdc.sdcardupdate.R;
-import com.foxconn.zzdc.sdcardupdate.UpdateUI;
+import com.foxconn.zzdc.sdcardupdate.tool.OTAApplication;
+import com.foxconn.zzdc.sdcardupdate.tool.ProgressButton;
 
 import java.io.File;
 
+import static com.foxconn.zzdc.sdcardupdate.download.DownloadStatus.FINISHED;
 import static com.foxconn.zzdc.sdcardupdate.download.DownloadStatus.NOT_START;
 
-public class DownloadDetailsActivity extends Activity {
+public class DownloadDetailsActivity extends AppCompatActivity {
+    private static final String TAG = "DownloadDetailsActivity";
 
-    private TextView mTextViewReleaseNote;
-    private ProgressBar mProgressBar;
-    private Button mButton;
+    private OTAApplication mApp;
+
+    private ProgressButton progressButton;
     private File mOTAPackage;
 
     private DownloadService.DownloadBinder mDownloadBinder;
@@ -39,35 +39,36 @@ public class DownloadDetailsActivity extends Activity {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             mDownloadBinder = (DownloadService.DownloadBinder) service;
+            Log.d(TAG, "onServiceConnected: status=" + mDownloadBinder.getStatus());
+            if (mApp.getPercent() == 100) {
+                mDownloadBinder.setStatus(FINISHED);
+            }
 
             DownloadService downloadService = mDownloadBinder.getService();
             downloadService.setUpdateUI(new UpdateUI() {
-                @Override
-                public void updateButton() {
-                    mButton.setText(R.string.install);
-                }
 
                 @Override
                 public void updateProgress(int progress) {
-                    mProgressBar.setVisibility(View.VISIBLE);
-                    mProgressBar.setProgress(progress);
+                    progressButton.setProgress(progress);
+                    if (progress == 100) {
+                        progressButton.setText(R.string.install);
+                    }
                 }
             });
 
             switch (mDownloadBinder.getStatus()) {
                 case DOWNLOADING:
-                    mButton.setText(R.string.pause);
+//                    progressButton.setText(R.string.pause);
                     break;
                 case PAUSED:
-                    mProgressBar.setVisibility(View.VISIBLE);
-                    mProgressBar.setProgress(mDownloadBinder.getProgress());
-                    mButton.setText(R.string.download);
+                    progressButton.setProgress(mDownloadBinder.getProgress());
+                    progressButton.setText(R.string.download);
                     break;
                 case FINISHED:
                     if (mOTAPackage.exists()) {
-                        mButton.setText(R.string.install);
+                        progressButton.setText(R.string.install);
                     } else {
-                        mButton.setText(R.string.download);
+                        progressButton.setText(R.string.download);
                         mDownloadBinder.setStatus(NOT_START);
                     }
                     break;
@@ -89,61 +90,70 @@ public class DownloadDetailsActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_download_details);
 
-        mTextViewReleaseNote = findViewById(R.id.textReleaseNote);
-        mProgressBar = findViewById(R.id.progressBar);
-        mButton = findViewById(R.id.button);
-
+        mApp = (OTAApplication) getApplication();
         Intent intent = getIntent();
-        String url = intent.getStringExtra("url");
-        mOTAPackage = new File(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS).getPath(), url.substring(url.lastIndexOf('/')));
-        String releaseNote = intent.getStringExtra("releaseNote");
-        int percent = intent.getIntExtra("percent", 0);
-        String ota = intent.getStringExtra("ota");
 
-        mTextViewReleaseNote.setText(releaseNote);
-        mProgressBar.setProgress(percent);
-        if (percent > 0) {
-            mProgressBar.setVisibility(View.VISIBLE);
+        if (mApp.getDownloadUrl() == null) {
+            mApp.setOta(intent.getStringExtra("ota"));
+            mApp.setReleaseNote(intent.getStringExtra("releaseNote"));
+            mApp.setDownloadUrl(intent.getStringExtra("url"));
+            mApp.setNewVersion(intent.getStringExtra("newVersion"));
+            mApp.setPercent(intent.getIntExtra("percent", 0));
         }
-        mButton.setOnClickListener(view -> {
+
+        Log.d(TAG, "onCreate: mApp=" + mApp);
+
+        if (ContextCompat.checkSelfPermission(DownloadDetailsActivity.this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(DownloadDetailsActivity.this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
+        }
+
+        TextView textViewReleaseNote = findViewById(R.id.textReleaseNote);
+        textViewReleaseNote.setText(mApp.getReleaseNote());
+
+        progressButton = findViewById(R.id.pb);
+        progressButton.setTag(0);
+        int percent = mApp.getPercent();
+        if (percent > 0 && percent < 100) {
+            progressButton.setProgress(percent);
+        }
+
+        String url = mApp.getDownloadUrl();
+        String otaFileName = url.substring(url.lastIndexOf("=") + 1);
+        mOTAPackage = new File(Environment.getExternalStorageDirectory().getPath() + "/", otaFileName);
+
+        progressButton.setOnClickListener(view -> {
+            progressButton.setTag(1);
             if (mDownloadBinder == null) {
                 return;
             }
 
             switch (mDownloadBinder.getStatus()) {
                 case FINISHED:
-                    //TODO: install the ota package here
-                    //intent.setClassName("com.evenwell.OTAUpdate", "com.evenwell.OTAUpdate.OTAService");
                     Intent service = new Intent();
                     service.setClassName("com.evenwell.OTAUpdate",
                             "com.evenwell.OTAUpdate.OTAService");
+                    service.putExtra("EXTRA_ACTION", "ACTION_CHECK_UPDATEZIP_SERVICE");
                     startService(service);
-                    Toast.makeText(DownloadDetailsActivity.this, "Install OTA",
-                            Toast.LENGTH_LONG).show();
                     break;
                 case DOWNLOADING:
                     mDownloadBinder.pauseDownload();
-                    mButton.setText(R.string.download);
+                    progressButton.setText(R.string.download);
                     break;
                 case NOT_START:
                 case PAUSED:
-                    mProgressBar.setVisibility(TextView.VISIBLE);
                     mDownloadBinder.startDownload(url);
-                    mButton.setText(R.string.pause);
                     break;
                 default:
                     break;
             }
         });
-        mButton.setOnLongClickListener(View -> {
-            String directory = Environment.getExternalStoragePublicDirectory(
-                    Environment.DIRECTORY_DOWNLOADS).getPath();
-            String fileName = url.substring(url.lastIndexOf("/"));
-            File file = new File(directory, fileName);
 
-            if (file.exists()) {
-                file.delete();
+        progressButton.setOnLongClickListener(View -> {
+
+            if (mOTAPackage.exists()) {
+                mOTAPackage.delete();
                 Toast.makeText(DownloadDetailsActivity.this, "deleted succeed",
                         Toast.LENGTH_LONG).show();
             }
@@ -151,15 +161,9 @@ public class DownloadDetailsActivity extends Activity {
             return false;
         });
 
-        Intent service = DownloadService.newIntent(this, releaseNote, ota, url, percent);
+        Intent service = new Intent(this, DownloadService.class);
         startService(service);
         bindService(service, mServiceConnection, BIND_AUTO_CREATE);
-
-        if (ContextCompat.checkSelfPermission(DownloadDetailsActivity.this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(DownloadDetailsActivity.this,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-        }
     }
 
     @Override
@@ -173,17 +177,10 @@ public class DownloadDetailsActivity extends Activity {
         }
     }
 
-    public static Intent newIntent(Context context,
-                                   String releaseNote,
-                                   String downloadURL,
-                                   String ota,
-                                   int percent) {
-        Intent intent = new Intent(context, DownloadDetailsActivity.class);
-        intent.putExtra("releaseNote", releaseNote);
-        intent.putExtra("url", downloadURL);
-        intent.putExtra("ota", ota);
-        intent.putExtra("percent", percent);
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
 
-        return intent;
+        unbindService(mServiceConnection);
     }
 }

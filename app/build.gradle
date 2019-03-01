@@ -6,8 +6,8 @@ android {
         applicationId "com.foxconn.zzdc.sdcardupdate"
         minSdkVersion 27
         targetSdkVersion 27
-        versionCode 6
-        versionName "8.0030.02"
+        versionCode 1
+        versionName "8.0000.01"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -16,7 +16,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             buildConfigField "String", "OTA_SERVER_URL",
                     //TODO: Change this URL to formal OTA server
-                    "\"http://10.206.25.254:9777/checkNewVersion/ota\""
+                    "\"http://10.206.25.181:9777/checkNewVersion/ota\""
         }
         debug {
             buildConfigField "String", "OTA_SERVER_URL",

@@ -1,6 +1,7 @@
 package com.foxconn.zzdc.sdcardupdate.autoupdate;
 
 import android.annotation.SuppressLint;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -11,6 +12,9 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 
@@ -18,7 +22,7 @@ import com.foxconn.zzdc.sdcardupdate.R;
 
 import java.util.Calendar;
 
-import static com.foxconn.zzdc.sdcardupdate.CheckUpdateActivity.checkUpdate;
+import static com.foxconn.zzdc.sdcardupdate.autoupdate.AutoUpdateService.REQUEST_CODE_CHECK_UPDATE;
 
 public class SettingActivity extends AppCompatActivity {
 
@@ -27,11 +31,15 @@ public class SettingActivity extends AppCompatActivity {
 
     public static final String AUTO_DOWNLOAD = "auto_download";
     public static final String AUTO_INSTALL = "auto_install";
+    private static final String TAG = "SettingActivity";
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_setting);
+
+        getSupportActionBar().setHomeButtonEnabled(true);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         switch_Download = findViewById(R.id.sw_autoDownload);
         switch_Install = findViewById(R.id.sw_autoInstall);
@@ -53,22 +61,26 @@ public class SettingActivity extends AppCompatActivity {
                     editor.putBoolean(AUTO_DOWNLOAD, true);
 
                     int value = getBatteryLevel();
-                    Log.d("SettingActivity", "onCheckedChanged: BatteryLevel:" + value);
+                    Log.d(TAG, "onCheckedChanged: batteryLevel=" + value);
 
                     Boolean wifiState = getWifiState();
-                    Log.d("SettingActivity", "onCheckedChanged: wifiState:" + wifiState);
+                    Log.d(TAG, "onCheckedChanged: wifiState=" + wifiState);
 
                     if (value >= 30 && (wifiState = true)) {
                         Intent service = new Intent(SettingActivity.this, AutoUpdateService.class);
-                        startService(service);
+                        startForegroundService(service);
                     }
 
                 } else {
                     editor.putBoolean(AUTO_DOWNLOAD, false);
+                    Intent service = new Intent(SettingActivity.this, AutoUpdateService.class);
+                    PendingIntent pendingIntent = PendingIntent.getForegroundService(SettingActivity.this,
+                            REQUEST_CODE_CHECK_UPDATE, service, 0);
+                    Log.d(TAG, "onCheckedChanged: unchecked, cancel auto check update");
 
+                    pendingIntent.cancel();
                 }
                 editor.commit();
-
             }
         });
 
@@ -80,12 +92,11 @@ public class SettingActivity extends AppCompatActivity {
                     editor.putBoolean(AUTO_INSTALL, true);
 
                     int value = getBatteryLevel();
-                    Log.d("SettingActivity", "onCheckedChanged: BatteryLevel:" + value);
+                    Log.d(TAG, "onCheckedChanged: batteryLevel=" + value);
 
                     Calendar calendar = Calendar.getInstance();
                     int hour = calendar.get(Calendar.HOUR_OF_DAY);
                     int minute = calendar.get(Calendar.MINUTE);
-                    Log.d("SettingActivity", "onCheckedChanged: " + hour + ":" + minute);
 
                     if (value >= 50 && (hour <= 5)) {
 
@@ -98,6 +109,21 @@ public class SettingActivity extends AppCompatActivity {
 
             }
         });
+    }
+
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.setting, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case android.R.id.home:
+                finish();
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     public int getBatteryLevel() {
